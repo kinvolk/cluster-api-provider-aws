@@ -37,6 +37,9 @@ var (
 
 	// SecretBackendSecretsManager defines AWS Secrets Manager as the secret backend
 	SecretBackendSecretsManager = SecretBackend("secrets-manager")
+
+	// SecretBackendS3Bucket defines AWS Secrets Manager as the secret backend
+	SecretBackendS3Bucket = SecretBackend("s3-bucket")
 )
 
 // AWSMachineSpec defines the desired state of AWSMachine

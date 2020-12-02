@@ -359,7 +359,7 @@ spec:
                         description: CloudInit defines options related to the bootstrapping systems where CloudInit is used.
                         properties:
                           insecureSkipSecretsManager:
-                            description: InsecureSkipSecretsManager, when set to true will not use AWS Secrets Manager or AWS Systems Manager Parameter Store to ensure privacy of userdata. By default, a cloud-init boothook shell script is prepended to download the userdata from Secrets Manager and additionally delete the secret.
+                            description: InsecureSkipSecretsManager, when set to true will not use AWS Secrets Manager, AWS Systems Manager Parameter Store or AWS S3 bucket to ensure privacy of userdata. By default, a cloud-init boothook shell script is prepended to download the userdata from Secrets Manager and additionally delete the secret.
                             type: boolean
                           secretCount:
                             description: SecretCount is the number of secrets used to form the complete secret
@@ -373,6 +373,7 @@ spec:
                             enum:
                             - secrets-manager
                             - ssm-parameter-store
+                            - s3-bucket
                             type: string
                         type: object
                       failureDomain:

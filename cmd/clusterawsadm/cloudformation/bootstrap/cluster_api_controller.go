@@ -199,6 +199,18 @@ func (t Template) controllersPolicy() *iamv1.PolicyDocument {
 					"ssm:AddTagsToResource",
 				},
 			})
+		case infrav1.SecretBackendS3Bucket:
+			statement = append(statement, iamv1.StatementEntry{
+				Effect: iamv1.EffectAllow,
+				Resource: iamv1.Resources{
+					"arn:*:s3:*:*:parameter/cluster.x-k8s.io/*",
+				},
+				Action: iamv1.Actions{
+					"s3:PutParameter",
+					"s3:DeleteParameter",
+					"s3:AddTagsToResource",
+				},
+			})
 		}
 	}
 	if t.Spec.EKS.Enable {

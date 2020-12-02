@@ -45,6 +45,17 @@ func (t Template) secretPolicy(secureSecretsBackend infrav1.SecretBackend) iamv1
 				"ssm:GetParameter",
 			},
 		}
+	case infrav1.SecretBackendS3Bucket:
+		return iamv1.StatementEntry{
+			Effect: iamv1.EffectAllow,
+			Resource: iamv1.Resources{
+				"arn:*:s3:*:*:parameter/cluster.x-k8s.io/*",
+			},
+			Action: iamv1.Actions{
+				"s3:DeleteParameter",
+				"s3:GetParameter",
+			},
+		}
 	}
 	return iamv1.StatementEntry{}
 }

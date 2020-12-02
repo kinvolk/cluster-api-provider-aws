@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/ec2"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/elb"
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/s3"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/secretsmanager"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/ssm"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/userdata"
@@ -61,6 +62,7 @@ type AWSMachineReconciler struct {
 	ec2ServiceFactory            func(scope.EC2Scope) services.EC2MachineInterface
 	secretsManagerServiceFactory func(cloud.ClusterScoper) services.SecretInterface
 	SSMServiceFactory            func(cloud.ClusterScoper) services.SecretInterface
+	S3ServiceFactory             func(cloud.ClusterScoper) services.SecretInterface
 	Endpoints                    []scope.ServiceEndpoint
 }
 
@@ -93,8 +95,17 @@ func (r *AWSMachineReconciler) getSSMService(scope cloud.ClusterScoper) services
 	return ssm.NewService(scope)
 }
 
+func (r *AWSMachineReconciler) getS3Service(scope cloud.ClusterScoper) services.SecretInterface {
+	if r.S3ServiceFactory != nil {
+		return r.S3ServiceFactory(scope)
+	}
+	return s3.NewService(scope)
+}
+
 func (r *AWSMachineReconciler) getSecretService(machineScope *scope.MachineScope, scope cloud.ClusterScoper) (services.SecretInterface, error) {
 	switch machineScope.SecureSecretsBackend() {
+	case infrav1.SecretBackendS3Bucket:
+		return r.getS3Service(scope), nil
 	case infrav1.SecretBackendSSMParameterStore:
 		return r.getSSMService(scope), nil
 	case infrav1.SecretBackendSecretsManager:
@@ -613,7 +624,8 @@ func (r *AWSMachineReconciler) createInstance(scope *scope.MachineScope, ec2svc 
 		return nil, err
 	}
 
-	if scope.UseSecretsManager() { // nolint:nestif
+	// TODO: determine if it is ignition
+	if scope.UseSecretsManager() || scope.UseIgnition() { // nolint:nestif
 		compressedUserData, err := userdata.GzipBytes(userData)
 		if err != nil {
 			return nil, err
