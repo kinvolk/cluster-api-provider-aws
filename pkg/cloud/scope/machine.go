@@ -191,8 +191,7 @@ func (m *MachineScope) UseSecretsManager() bool {
 // UseIgnition returns the computed value of whether or not
 // ignition should be stored using AWS Secrets Manager.
 func (m *MachineScope) UseIgnition() bool {
-	// TODO: we need to figure out how to fetch it from spec
-	return true
+	return m.SecureSecretsBackend() == infrav1.SecretBackendS3Bucket
 }
 
 // SecureSecretsBackend returns the chosen secret backend.

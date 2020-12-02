@@ -624,7 +624,6 @@ func (r *AWSMachineReconciler) createInstance(scope *scope.MachineScope, ec2svc 
 		return nil, err
 	}
 
-	// TODO: determine if it is ignition
 	if scope.UseSecretsManager() || scope.UseIgnition() { // nolint:nestif
 		compressedUserData, err := userdata.GzipBytes(userData)
 		if err != nil {
