@@ -21,6 +21,8 @@ kind: AWSCluster
 metadata:
   name: "${CLUSTER_NAME}"
 spec:
+  imageLookupBaseOS: "${AWS_AMI_IMAGE_BASEOS}"
+  imageLookupOrg: "${AWS_AMI_IMAGE_ORG}"
   region: "${AWS_REGION}"
   sshKeyName: "${AWS_SSH_KEY_NAME}"
 ---
@@ -61,8 +63,10 @@ metadata:
 spec:
   template:
     spec:
-      instanceType: "${AWS_CONTROL_PLANE_MACHINE_TYPE}"
       iamInstanceProfile: "control-plane.cluster-api-provider-aws.sigs.k8s.io"
+      imageLookupBaseOS: "${AWS_AMI_IMAGE_BASEOS}"
+      imageLookupOrg: "${AWS_AMI_IMAGE_ORG}"
+      instanceType: "${AWS_CONTROL_PLANE_MACHINE_TYPE}"
       sshKeyName: "${AWS_SSH_KEY_NAME}"
 ---
 apiVersion: cluster.x-k8s.io/v1alpha3
@@ -95,8 +99,10 @@ metadata:
 spec:
   template:
     spec:
-      instanceType: "${AWS_NODE_MACHINE_TYPE}"
       iamInstanceProfile: "nodes.cluster-api-provider-aws.sigs.k8s.io"
+      imageLookupBaseOS: "${AWS_AMI_IMAGE_BASEOS}"
+      imageLookupOrg: "${AWS_AMI_IMAGE_ORG}"
+      instanceType: "${AWS_NODE_MACHINE_TYPE}"
       sshKeyName: "${AWS_SSH_KEY_NAME}"
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
