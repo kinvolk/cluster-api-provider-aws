@@ -46,4 +46,4 @@ require (
 	sigs.k8s.io/yaml v1.2.0
 )
 
-replace sigs.k8s.io/cluster-api => github.com/kinvolk/cluster-api v0.0.0-20201216133705-042e36b28a98
+replace sigs.k8s.io/cluster-api => github.com/kinvolk/cluster-api v0.0.0-20210127160018-5464a120042c
