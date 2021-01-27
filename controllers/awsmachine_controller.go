@@ -624,7 +624,8 @@ func (r *AWSMachineReconciler) createInstance(scope *scope.MachineScope, ec2svc 
 		return nil, err
 	}
 
-	if scope.UseSecretsManager() || scope.UseIgnition() { // nolint:nestif
+	if scope.UseSecretsManager() { // nolint:nestif
+		scope.Info("using secrets manager")
 		compressedUserData, err := userdata.GzipBytes(userData)
 		if err != nil {
 			return nil, err
@@ -650,6 +651,13 @@ func (r *AWSMachineReconciler) createInstance(scope *scope.MachineScope, ec2svc 
 			return nil, err
 		}
 		userData = encryptedCloudInit
+	} else if scope.UseIgnition() {
+		scope.Info("using ignition")
+		userData, err = secretSvc.UserData(scope.GetSecretPrefix(), scope.GetSecretCount(), scope.InfraCluster.Region(), r.Endpoints)
+		if err != nil {
+			r.Recorder.Eventf(scope.AWSMachine, corev1.EventTypeWarning, "FailedGenerateAWSSecretsCloudInit", err.Error())
+			return nil, err
+		}
 	}
 
 	instance, err := ec2svc.CreateInstance(scope, userData)

@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	userDataBucket string = "ignition-userdata-bucket"
+	userDataBucket string = "ignition-userdata-bucket-eu-central-1"
 	userDataDir    string = "ignition-userdata-dir"
 )
 

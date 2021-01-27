@@ -25,22 +25,21 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	ignTypes "github.com/coreos/ignition/config/v2_2/types"
-	"github.com/google/uuid"
 	"net/url"
-	"strings"
 )
 
 var (
 	baseIgnitionUri = map[string]string{
-		"v1.15.11": "ignition-config/k8s-v1.15.11.ign",
-		"v1.16.8":  "ignition-config/k8s-v1.16.8.ign",
-		"v1.17.4":  "ignition-config/k8s-v1.17.4.ign",
+		"v1.17.4":  "ignition-userdata-dir/k8s-v1.17.ign",
+		"v1.18.2":  "ignition-userdata-dir/k8s-v1.18.ign",
+		"v1.18.15": "ignition-userdata-dir/k8s-v1.18.ign",
 	}
-	userDataDirName = "node-userdata"
+
+	userDataDirName = "ignition-userdata-dir"
 )
 
 const (
-	KubernetesDefaultVersion = "v1.17.4"
+	KubernetesDefaultVersion = "v1.18.15"
 	IgnitionSchemaVersion    = "2.2.0"
 )
 
@@ -101,7 +100,8 @@ func (factory *S3TemplateBackend) getIgnitionConfigTemplate(node *Node) (*ignTyp
 }
 
 func (factory *S3TemplateBackend) applyConfig(userdata []byte) (*ignTypes.Config, error) {
-	factory.FilePath = strings.Join([]string{userDataDirName, uuid.New().String()}, "/")
+	templateConfigUri, _ := baseIgnitionUri[KubernetesDefaultVersion]
+	factory.FilePath = templateConfigUri
 
 	var errPut error
 	_, errPut = factory.S3Client.PutObject(&s3.PutObjectInput{
