@@ -185,7 +185,7 @@ func (m *MachineScope) SetAnnotation(key, value string) {
 // UseSecretsManager returns the computed value of whether or not
 // userdata should be stored using AWS Secrets Manager.
 func (m *MachineScope) UseSecretsManager() bool {
-	return !m.AWSMachine.Spec.CloudInit.InsecureSkipSecretsManager
+	return m.SecureSecretsBackend() == infrav1.SecretBackendSecretsManager && !m.AWSMachine.Spec.CloudInit.InsecureSkipSecretsManager
 }
 
 // UseIgnition returns the computed value of whether or not

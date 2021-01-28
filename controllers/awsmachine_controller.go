@@ -475,7 +475,7 @@ func (r *AWSMachineReconciler) reconcileNormal(_ context.Context, machineScope *
 	}
 
 	// Make sure bootstrap data is available and populated.
-	if machineScope.Machine.Spec.Bootstrap.DataSecretName == nil {
+	if !machineScope.UseIgnition() && machineScope.Machine.Spec.Bootstrap.DataSecretName == nil {
 		machineScope.Info("Bootstrap data secret reference is not yet available")
 		conditions.MarkFalse(machineScope.AWSMachine, infrav1.InstanceReadyCondition, infrav1.WaitingForBootstrapDataReason, clusterv1.ConditionSeverityInfo, "")
 		return ctrl.Result{}, nil
@@ -618,10 +618,15 @@ func (r *AWSMachineReconciler) deleteEncryptedBootstrapDataSecret(machineScope *
 func (r *AWSMachineReconciler) createInstance(scope *scope.MachineScope, ec2svc services.EC2MachineInterface, secretSvc services.SecretInterface) (*infrav1.Instance, error) {
 	scope.Info("Creating EC2 instance")
 
-	userData, err := scope.GetRawBootstrapData()
-	if err != nil {
-		r.Recorder.Eventf(scope.AWSMachine, corev1.EventTypeWarning, "FailedGetBootstrapData", err.Error())
-		return nil, err
+	var userData []byte
+	var err error
+
+	if !scope.UseIgnition() {
+		userData, err = scope.GetRawBootstrapData()
+		if err != nil {
+			r.Recorder.Eventf(scope.AWSMachine, corev1.EventTypeWarning, "FailedGetBootstrapData", err.Error())
+			return nil, err
+		}
 	}
 
 	if scope.UseSecretsManager() { // nolint:nestif
