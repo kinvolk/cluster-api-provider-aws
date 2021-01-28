@@ -29,6 +29,8 @@ import (
 	kubeadmignition "sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/s3/ignition"
 	kubeadmv1beta1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/types/v1beta1"
 	bootstrapv1 "sigs.k8s.io/cluster-api/exp/kubeadm-ignition/api/v1alpha4"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
@@ -83,10 +85,29 @@ func (s *Service) Delete(m *scope.MachineScope) error {
 func NewFakeNode() *kubeadmignition.Node {
 	kubeadmConfig := bootstrapv1.KubeadmIgnitionConfig{}
 
+	if kubeadmConfig.Spec.InitConfiguration == nil {
+		kubeadmConfig.Spec.InitConfiguration = &kubeadmv1beta1.InitConfiguration{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "kubeadm.k8s.io/v1beta1",
+				Kind:       "InitConfiguration",
+			},
+		}
+	}
+
 	initdata, err := kubeadmv1beta1.ConfigurationToYAML(kubeadmConfig.Spec.InitConfiguration)
 	if err != nil {
 		fmt.Printf("failed to marshal init configuration\n")
 		return nil
+	}
+
+	if kubeadmConfig.Spec.ClusterConfiguration == nil {
+		kubeadmConfig.Spec.ClusterConfiguration = &kubeadmv1beta1.ClusterConfiguration{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "kubeadm.k8s.io/v1beta1",
+				Kind:       "ClusterConfiguration",
+			},
+			KubernetesVersion: kubeadmignition.KubernetesDefaultVersion,
+		}
 	}
 
 	clusterdata, err := kubeadmv1beta1.ConfigurationToYAML(kubeadmConfig.Spec.ClusterConfiguration)
@@ -95,7 +116,10 @@ func NewFakeNode() *kubeadmignition.Node {
 		return nil
 	}
 
-	verbosityFlag := fmt.Sprintf("--v %s", strconv.Itoa(int(*kubeadmConfig.Spec.Verbosity)))
+	verbosityFlag := ""
+	if kubeadmConfig.Spec.Verbosity != nil {
+		verbosityFlag = fmt.Sprintf("--v %s", strconv.Itoa(int(*kubeadmConfig.Spec.Verbosity)))
+	}
 
 	return &kubeadmignition.Node{
 		Files: append([]bootstrapv1.File{}, bootstrapv1.File{
