@@ -68,6 +68,8 @@ spec:
       imageLookupOrg: "${AWS_AMI_IMAGE_ORG}"
       instanceType: "${AWS_CONTROL_PLANE_MACHINE_TYPE}"
       sshKeyName: "${AWS_SSH_KEY_NAME}"
+      cloudInit:
+        secureSecretsBackend: "${AWS_SECURE_SECRETS_BACKEND}"
 ---
 apiVersion: cluster.x-k8s.io/v1alpha4
 kind: MachineDeployment
@@ -104,6 +106,8 @@ spec:
       imageLookupOrg: "${AWS_AMI_IMAGE_ORG}"
       instanceType: "${AWS_NODE_MACHINE_TYPE}"
       sshKeyName: "${AWS_SSH_KEY_NAME}"
+      cloudInit:
+        secureSecretsBackend: "${AWS_SECURE_SECRETS_BACKEND}"
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1alpha4
 kind: KubeadmConfigTemplate
