@@ -17,9 +17,17 @@ limitations under the License.
 package controllers
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
+	"net/url"
 	"reflect"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
+	ignTypes "github.com/coreos/ignition/config/v2_3/types"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -635,6 +643,57 @@ func (r *AWSMachineReconciler) createInstance(scope *scope.MachineScope, ec2svc 
 			return nil, err
 		}
 		userData = encryptedCloudInit
+	}
+
+	if scope.UseIgnition() {
+		bucket := "capa-ignition-mat" // TODO: Make me configurable.
+		key := scope.Name()           // Use machine name for S3 entries.
+
+		baseIgnitionUrl := &url.URL{
+			Scheme: "s3",
+			Host:   bucket,
+			Path:   key,
+		}
+
+		ignData := &ignTypes.Config{
+			Ignition: ignTypes.Ignition{
+				Version: "2.3.0",
+				Config: ignTypes.IgnitionConfig{
+					Append: []ignTypes.ConfigReference{
+						{
+							Source: baseIgnitionUrl.String(),
+						},
+					},
+				},
+			},
+		}
+
+		ignitionUserData, err := json.Marshal(ignData)
+		if err != nil {
+			r.Recorder.Eventf(scope.AWSMachine, corev1.EventTypeWarning, "FailedGenerateIgnition", err.Error())
+			return nil, err
+		}
+
+		session, err := session.NewSession(&aws.Config{
+			Region: aws.String("eu-central-1"),
+		})
+		if err != nil {
+			r.Recorder.Eventf(scope.AWSMachine, corev1.EventTypeWarning, "FailedCreatingSession", err.Error())
+			return nil, err
+		}
+
+		s3Client := s3.New(session)
+
+		if _, err := s3Client.PutObject(&s3.PutObjectInput{
+			Body:   aws.ReadSeekCloser(bytes.NewReader(userData)),
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key),
+			ACL:    aws.String("public-read"),
+		}); err != nil {
+			return nil, fmt.Errorf("failed to put object to bucket: %w", err)
+		}
+
+		userData = ignitionUserData
 	}
 
 	instance, err := ec2svc.CreateInstance(scope, userData)

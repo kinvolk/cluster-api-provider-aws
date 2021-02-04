@@ -185,7 +185,11 @@ func (m *MachineScope) SetAnnotation(key, value string) {
 // UseSecretsManager returns the computed value of whether or not
 // userdata should be stored using AWS Secrets Manager.
 func (m *MachineScope) UseSecretsManager() bool {
-	return !m.AWSMachine.Spec.CloudInit.InsecureSkipSecretsManager
+	return !m.AWSMachine.Spec.CloudInit.InsecureSkipSecretsManager && !m.UseIgnition()
+}
+
+func (m *MachineScope) UseIgnition() bool {
+	return m.AWSMachine.Spec.Ignition.Enabled
 }
 
 // SecureSecretsBackend returns the chosen secret backend.
@@ -193,9 +197,13 @@ func (m *MachineScope) SecureSecretsBackend() infrav1.SecretBackend {
 	return m.AWSMachine.Spec.CloudInit.SecureSecretsBackend
 }
 
-// UserDataIsUncompressed returns the computed value of whether or not
+// CompressUserData returns the computed value of whether or not
 // userdata should be compressed using gzip.
-func (m *MachineScope) UserDataIsUncompressed() bool {
+func (m *MachineScope) CompressUserData() bool {
+	if m.UseIgnition() {
+		return false
+	}
+
 	return m.AWSMachine.Spec.UncompressedUserData != nil && *m.AWSMachine.Spec.UncompressedUserData
 }
 

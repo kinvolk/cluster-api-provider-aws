@@ -178,7 +178,7 @@ func (s *Service) CreateInstance(scope *scope.MachineScope, userData []byte) (*i
 
 		return nil, awserrors.NewFailedDependency("failed to run controlplane, APIServer ELB not available")
 	}
-	if !scope.UserDataIsUncompressed() {
+	if scope.CompressUserData() {
 		userData, err = userdata.GzipBytes(userData)
 		if err != nil {
 			return nil, errors.New("failed to gzip userdata")

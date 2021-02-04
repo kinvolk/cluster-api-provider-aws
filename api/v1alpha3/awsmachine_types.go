@@ -135,6 +135,10 @@ type AWSMachineSpec struct {
 	// +optional
 	CloudInit CloudInit `json:"cloudInit,omitempty"`
 
+	// Ignition defined options related to the bootstrapping systems where Ignition is used.
+	// +optional
+	Ignition Ignition `json:"ignition,omitempty"`
+
 	// SpotMarketOptions allows users to configure instances to be run using AWS Spot instances.
 	// +optional
 	SpotMarketOptions *SpotMarketOptions `json:"spotMarketOptions,omitempty"`
@@ -170,6 +174,13 @@ type CloudInit struct {
 	// +optional
 	// +kubebuilder:validation:Enum=secrets-manager;ssm-parameter-store
 	SecureSecretsBackend SecretBackend `json:"secureSecretsBackend,omitempty"`
+}
+
+// Ignition defined options related to the bootstrapping systems where Ignition is used.
+type Ignition struct {
+	// Enabled defines if Ignition should be used for bootstrap data.
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
 }
 
 // AWSMachineStatus defines the observed state of AWSMachine
