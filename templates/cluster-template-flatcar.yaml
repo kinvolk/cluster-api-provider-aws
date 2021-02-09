@@ -35,7 +35,6 @@ spec:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha3
     name: "${CLUSTER_NAME}-control-plane"
   kubeadmConfigSpec:
-    format: ignition
     initConfiguration:
       nodeRegistration:
         name: '$${COREOS_EC2_HOSTNAME}'
@@ -70,8 +69,6 @@ spec:
       sshKeyName: "${AWS_SSH_KEY_NAME}"
       imageLookupBaseOS: flatcar-stable
       imageLookupOrg: "075585003325"
-      ignition:
-        enabled: true
 ---
 apiVersion: cluster.x-k8s.io/v1alpha3
 kind: MachineDeployment
@@ -108,8 +105,6 @@ spec:
       sshKeyName: "${AWS_SSH_KEY_NAME}"
       imageLookupBaseOS: flatcar-stable
       imageLookupOrg: "075585003325"
-      ignition:
-        enabled: true
 ---
 apiVersion: bootstrap.cluster.x-k8s.io/v1alpha3
 kind: KubeadmConfigTemplate
@@ -118,7 +113,6 @@ metadata:
 spec:
   template:
     spec:
-      format: ignition
       joinConfiguration:
         nodeRegistration:
           name: '$${COREOS_EC2_HOSTNAME}'

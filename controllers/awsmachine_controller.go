@@ -611,13 +611,13 @@ func (r *AWSMachineReconciler) deleteEncryptedBootstrapDataSecret(machineScope *
 func (r *AWSMachineReconciler) createInstance(scope *scope.MachineScope, ec2svc services.EC2MachineInterface, secretSvc services.SecretInterface) (*infrav1.Instance, error) {
 	scope.Info("Creating EC2 instance")
 
-	userData, err := scope.GetRawBootstrapData()
+	userData, userDataFormat, err := scope.GetRawBootstrapDataWithFormat()
 	if err != nil {
 		r.Recorder.Eventf(scope.AWSMachine, corev1.EventTypeWarning, "FailedGetBootstrapData", err.Error())
 		return nil, err
 	}
 
-	if scope.UseSecretsManager() { // nolint:nestif
+	if scope.UseSecretsManager(userDataFormat) { // nolint:nestif
 		compressedUserData, err := userdata.GzipBytes(userData)
 		if err != nil {
 			return nil, err
@@ -645,7 +645,7 @@ func (r *AWSMachineReconciler) createInstance(scope *scope.MachineScope, ec2svc 
 		userData = encryptedCloudInit
 	}
 
-	if scope.UseIgnition() {
+	if scope.UseIgnition(userDataFormat) {
 		bucket := "capa-ignition-mat" // TODO: Make me configurable.
 		key := scope.Name()           // Use machine name for S3 entries.
 
