@@ -646,8 +646,8 @@ func (r *AWSMachineReconciler) createInstance(scope *scope.MachineScope, ec2svc 
 	}
 
 	if scope.UseIgnition(userDataFormat) {
-		bucket := "capa-ignition-mat" // TODO: Make me configurable.
-		key := scope.Name()           // Use machine name for S3 entries.
+		bucket := "ignition-userdata-bucket-eu-west-3" // TODO: Make me configurable.
+		key := scope.Name()                            // Use machine name for S3 entries.
 
 		baseIgnitionUrl := &url.URL{
 			Scheme: "s3",
@@ -675,7 +675,7 @@ func (r *AWSMachineReconciler) createInstance(scope *scope.MachineScope, ec2svc 
 		}
 
 		session, err := session.NewSession(&aws.Config{
-			Region: aws.String("eu-central-1"),
+			Region: aws.String("eu-west-3"),
 		})
 		if err != nil {
 			r.Recorder.Eventf(scope.AWSMachine, corev1.EventTypeWarning, "FailedCreatingSession", err.Error())
