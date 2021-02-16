@@ -192,6 +192,10 @@ type AWSIAMConfigurationSpec struct {
 	// will generate AWS Secrets Manager policies instead.
 	// +kubebuilder:validation:Enum=secrets-manager;ssm-parameter-store
 	SecureSecretsBackends []infrav1.SecretBackend `json:"secureSecretBackends,omitempty"`
+
+	// SecureSecretsBackend, when set to true, will add controller nodes permissions to
+	// create S3 Buckets for workload clusters.
+	S3Bucket bool `json:"s3Bucket,omitempty"`
 }
 
 func (obj *AWSIAMConfiguration) GetObjectKind() schema.ObjectKind {

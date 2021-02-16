@@ -63,6 +63,14 @@ func Test_RenderCloudformation(t *testing.T) {
 			},
 		},
 		{
+			fixture: "with_s3_bucket",
+			template: func() Template {
+				t := NewTemplate()
+				t.Spec.S3Bucket = true
+				return t
+			},
+		},
+		{
 			fixture: "customsuffix",
 			template: func() Template {
 				t := NewTemplate()
