@@ -49,6 +49,22 @@ func (t Template) secretPolicy(secureSecretsBackend infrav1.SecretBackend) iamv1
 	return iamv1.StatementEntry{}
 }
 
+func (t Template) objectStorePolicy() iamv1.StatementEntry {
+	return iamv1.StatementEntry{
+		Effect: iamv1.EffectAllow,
+		Resource: iamv1.Resources{
+			"arn:*:s3:::*",
+		},
+		Action: iamv1.Actions{
+			"s3:CreateBucket",
+			"s3:DeleteBucket",
+			"s3:PutObject",
+			"s3:PutObjectAcl",
+			"s3:DeleteObject",
+		},
+	}
+}
+
 func (t Template) sessionManagerPolicy() iamv1.StatementEntry {
 	return iamv1.StatementEntry{
 		Effect:   iamv1.EffectAllow,
@@ -92,6 +108,13 @@ func (t Template) nodePolicy() *iamv1.PolicyDocument {
 		policyDocument.Statement,
 		t.sessionManagerPolicy(),
 	)
+
+	if t.Spec.S3Bucket {
+		policyDocument.Statement = append(
+			policyDocument.Statement,
+			t.objectStorePolicy(),
+		)
+	}
 
 	return policyDocument
 }
