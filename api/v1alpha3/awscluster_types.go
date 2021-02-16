@@ -82,6 +82,10 @@ type AWSClusterSpec struct {
 	// Bastion contains options to configure the bastion host.
 	// +optional
 	Bastion Bastion `json:"bastion"`
+
+	// S3Bucket contains options to configure the S3 Bucket for nodes requiring Ignition for bootstrapping.
+	// +optional
+	S3Bucket S3Bucket `json:"s3Bucket,omitempty"`
 }
 
 type Bastion struct {
@@ -146,6 +150,21 @@ type AWSClusterStatus struct {
 	FailureDomains clusterv1.FailureDomains `json:"failureDomains,omitempty"`
 	Bastion        *Instance                `json:"bastion,omitempty"`
 	Conditions     clusterv1.Conditions     `json:"conditions,omitempty"`
+}
+
+type S3Bucket struct {
+	// Cleanup controls if S3 Bucket should be removed when cluster is deleted.
+	// This allows to use your own bucket for multiple clusters.
+	// +optional
+
+	Cleanup bool `json:"cleanup,omitempty"`
+	// Enabled controls if S3 Bucket should be created as part of cluster provisioning.
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
+
+	// Name defines name of S3 Bucket to be created. By default Cluster name will be used.
+	// +optional
+	Name string `json:"name,omitempty"`
 }
 
 // +kubebuilder:object:root=true
