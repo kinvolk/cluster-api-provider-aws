@@ -18,8 +18,10 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
 
+	ignTypes "github.com/coreos/ignition/config/v2_3/types"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -47,6 +49,7 @@ import (
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/ec2"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/elb"
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/s3"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/secretsmanager"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/ssm"
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/services/userdata"
@@ -60,6 +63,7 @@ type AWSMachineReconciler struct {
 	ec2ServiceFactory            func(scope.EC2Scope) services.EC2MachineInterface
 	secretsManagerServiceFactory func(cloud.ClusterScoper) services.SecretInterface
 	SSMServiceFactory            func(cloud.ClusterScoper) services.SecretInterface
+	S3ServiceFactory             func(cloud.ClusterScoper) services.ObjectStore
 	Endpoints                    []scope.ServiceEndpoint
 }
 
@@ -99,6 +103,14 @@ func (r *AWSMachineReconciler) getSecretService(machineScope *scope.MachineScope
 		return r.getSecretsManagerService(scope), nil
 	}
 	return nil, errors.New("invalid secret backend")
+}
+
+func (r *AWSMachineReconciler) getObjectStoreService(scope scope.S3Scope) services.ObjectStore {
+	if r.S3ServiceFactory != nil {
+		return r.S3ServiceFactory(scope)
+	}
+
+	return s3.NewService(scope)
 }
 
 // +kubebuilder:rbac:groups=infrastructure.cluster.x-k8s.io,resources=awsmachines,verbs=get;list;watch;create;update;patch;delete
@@ -179,16 +191,16 @@ func (r *AWSMachineReconciler) Reconcile(req ctrl.Request) (_ ctrl.Result, reter
 	switch infraScope := infraCluster.(type) {
 	case *scope.ManagedControlPlaneScope:
 		if !awsMachine.ObjectMeta.DeletionTimestamp.IsZero() {
-			return r.reconcileDelete(machineScope, infraScope, infraScope, nil)
+			return r.reconcileDelete(machineScope, infraScope, infraScope, nil, nil)
 		}
 
-		return r.reconcileNormal(ctx, machineScope, infraScope, infraScope, nil)
+		return r.reconcileNormal(ctx, machineScope, infraScope, infraScope, nil, nil)
 	case *scope.ClusterScope:
 		if !awsMachine.ObjectMeta.DeletionTimestamp.IsZero() {
-			return r.reconcileDelete(machineScope, infraScope, infraScope, infraScope)
+			return r.reconcileDelete(machineScope, infraScope, infraScope, infraScope, infraScope)
 		}
 
-		return r.reconcileNormal(ctx, machineScope, infraScope, infraScope, infraScope)
+		return r.reconcileNormal(ctx, machineScope, infraScope, infraScope, infraScope, infraScope)
 	default:
 		return ctrl.Result{}, errors.New("infraCluster has unknown type")
 	}
@@ -293,7 +305,7 @@ func (r *AWSMachineReconciler) SetupWithManager(mgr ctrl.Manager, options contro
 	)
 }
 
-func (r *AWSMachineReconciler) reconcileDelete(machineScope *scope.MachineScope, clusterScope cloud.ClusterScoper, ec2Scope scope.EC2Scope, elbScope scope.ELBScope) (ctrl.Result, error) {
+func (r *AWSMachineReconciler) reconcileDelete(machineScope *scope.MachineScope, clusterScope cloud.ClusterScoper, ec2Scope scope.EC2Scope, elbScope scope.ELBScope, objectStoreScope scope.S3Scope) (ctrl.Result, error) {
 	machineScope.Info("Handling deleted AWSMachine")
 
 	ec2Service := r.getEC2Service(ec2Scope)
@@ -303,6 +315,12 @@ func (r *AWSMachineReconciler) reconcileDelete(machineScope *scope.MachineScope,
 	}
 
 	if err := r.deleteEncryptedBootstrapDataSecret(machineScope, secretSvc); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	objectStoreSvc := r.getObjectStoreService(objectStoreScope)
+
+	if err := r.deleteBootstrapData(machineScope, objectStoreSvc); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -426,7 +444,7 @@ func (r *AWSMachineReconciler) findInstance(scope *scope.MachineScope, ec2svc se
 	return instance, nil
 }
 
-func (r *AWSMachineReconciler) reconcileNormal(_ context.Context, machineScope *scope.MachineScope, clusterScope cloud.ClusterScoper, ec2Scope scope.EC2Scope, elbScope scope.ELBScope) (ctrl.Result, error) {
+func (r *AWSMachineReconciler) reconcileNormal(_ context.Context, machineScope *scope.MachineScope, clusterScope cloud.ClusterScoper, ec2Scope scope.EC2Scope, elbScope scope.ELBScope, objectStoreScope scope.S3Scope) (ctrl.Result, error) {
 	machineScope.Info("Reconciling AWSMachine")
 
 	secretSvc, err := r.getSecretService(machineScope, clusterScope)
@@ -434,12 +452,18 @@ func (r *AWSMachineReconciler) reconcileNormal(_ context.Context, machineScope *
 		return ctrl.Result{}, err
 	}
 
+	objectStoreSvc := r.getObjectStoreService(objectStoreScope)
+
 	// If the AWSMachine is in an error state, return early.
 	if machineScope.HasFailed() {
 		machineScope.Info("Error state detected, skipping reconciliation")
 
 		// If we are in a failed state, delete the secret regardless of instance state
 		if err := r.deleteEncryptedBootstrapDataSecret(machineScope, secretSvc); err != nil {
+			return ctrl.Result{}, err
+		}
+
+		if err := r.deleteBootstrapData(machineScope, objectStoreSvc); err != nil {
 			return ctrl.Result{}, err
 		}
 
@@ -483,7 +507,8 @@ func (r *AWSMachineReconciler) reconcileNormal(_ context.Context, machineScope *
 				return ctrl.Result{}, errors.Wrap(err, "Failed to patch conditions")
 			}
 		}
-		instance, err = r.createInstance(machineScope, ec2svc, secretSvc)
+
+		instance, err = r.createInstance(machineScope, ec2svc, secretSvc, objectStoreSvc)
 		if err != nil {
 			conditions.MarkFalse(machineScope.AWSMachine, infrav1.InstanceReadyCondition, infrav1.InstanceProvisionFailedReason, clusterv1.ConditionSeverityError, err.Error())
 			return ctrl.Result{}, err
@@ -535,6 +560,10 @@ func (r *AWSMachineReconciler) reconcileNormal(_ context.Context, machineScope *
 		return ctrl.Result{}, err
 	}
 
+	if err := r.deleteBootstrapData(machineScope, objectStoreSvc); err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if instance.State == infrav1.InstanceStateTerminated {
 		machineScope.SetFailureReason(capierrors.UpdateMachineError)
 		machineScope.SetFailureMessage(errors.Errorf("EC2 instance state %q is unexpected", instance.State))
@@ -573,6 +602,20 @@ func (r *AWSMachineReconciler) reconcileNormal(_ context.Context, machineScope *
 	return ctrl.Result{}, nil
 }
 
+func (r *AWSMachineReconciler) deleteBootstrapData(machineScope *scope.MachineScope, objectStoreSvc services.ObjectStore) error {
+	// Do nothing if the AWSMachine is not in a failed state, and is operational from an EC2 perspective, but does not have a node reference
+	if !machineScope.HasFailed() && machineScope.InstanceIsOperational() && machineScope.Machine.Status.NodeRef == nil && !machineScope.AWSMachineIsDeleted() {
+		return nil
+	}
+	machineScope.Info("Deleting unneeded entry from AWS Secret", "secretPrefix", machineScope.GetSecretPrefix())
+
+	if err := objectStoreSvc.Delete(machineScope); err != nil {
+		return errors.Wrap(err, "deleting bootstrap data object")
+	}
+
+	return nil
+}
+
 func (r *AWSMachineReconciler) deleteEncryptedBootstrapDataSecret(machineScope *scope.MachineScope, secretSvc services.SecretInterface) error {
 	// do nothing if there isn't a secret
 	if machineScope.GetSecretPrefix() == "" {
@@ -600,16 +643,16 @@ func (r *AWSMachineReconciler) deleteEncryptedBootstrapDataSecret(machineScope *
 	return nil
 }
 
-func (r *AWSMachineReconciler) createInstance(scope *scope.MachineScope, ec2svc services.EC2MachineInterface, secretSvc services.SecretInterface) (*infrav1.Instance, error) {
+func (r *AWSMachineReconciler) createInstance(scope *scope.MachineScope, ec2svc services.EC2MachineInterface, secretSvc services.SecretInterface, objectStoreSvc services.ObjectStore) (*infrav1.Instance, error) {
 	scope.Info("Creating EC2 instance")
 
-	userData, err := scope.GetRawBootstrapData()
+	userData, userDataFormat, err := scope.GetRawBootstrapDataWithFormat()
 	if err != nil {
 		r.Recorder.Eventf(scope.AWSMachine, corev1.EventTypeWarning, "FailedGetBootstrapData", err.Error())
 		return nil, err
 	}
 
-	if scope.UseSecretsManager() { // nolint:nestif
+	if scope.UseSecretsManager(userDataFormat) { // nolint:nestif
 		compressedUserData, err := userdata.GzipBytes(userData)
 		if err != nil {
 			return nil, err
@@ -637,12 +680,59 @@ func (r *AWSMachineReconciler) createInstance(scope *scope.MachineScope, ec2svc 
 		userData = encryptedCloudInit
 	}
 
+	if scope.UseIgnition(userDataFormat) {
+		ignitionUserData, err := r.ignitionUserData(scope, objectStoreSvc, userData)
+		if err != nil {
+			return nil, errors.Wrap(err, "creating Ignition userdata")
+		}
+
+		userData = ignitionUserData
+	}
+
 	instance, err := ec2svc.CreateInstance(scope, userData)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create AWSMachine instance")
 	}
 
 	return instance, nil
+}
+
+func (r *AWSMachineReconciler) ignitionUserData(scope *scope.MachineScope, objectStoreSvc services.ObjectStore, userData []byte) ([]byte, error) {
+	if objectStoreSvc == nil {
+		return nil, errors.New("object store service not available")
+	}
+
+	objectURL, err := objectStoreSvc.Create(scope, userData)
+	if err != nil {
+		return nil, errors.Wrap(err, "creating userdata object")
+	}
+
+	ignitionUserData := []byte{}
+
+	switch scope.AWSMachine.Spec.Ignition.Version {
+	default:
+		ignData := &ignTypes.Config{
+			Ignition: ignTypes.Ignition{
+				Version: "2.3.0",
+				Config: ignTypes.IgnitionConfig{
+					Append: []ignTypes.ConfigReference{
+						{
+							Source: objectURL,
+						},
+					},
+				},
+			},
+		}
+
+		ignitionUserData, err = json.Marshal(ignData)
+	}
+
+	if err != nil {
+		r.Recorder.Eventf(scope.AWSMachine, corev1.EventTypeWarning, "FailedGenerateIgnition", err.Error())
+		return nil, errors.Wrap(err, "serializing generated data")
+	}
+
+	return ignitionUserData, nil
 }
 
 func (r *AWSMachineReconciler) reconcileLBAttachment(machineScope *scope.MachineScope, clusterScope scope.ELBScope, i *infrav1.Instance) error {
