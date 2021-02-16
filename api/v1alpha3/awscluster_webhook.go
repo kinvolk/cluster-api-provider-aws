@@ -50,6 +50,7 @@ func (r *AWSCluster) ValidateCreate() error {
 	var allErrs field.ErrorList
 
 	allErrs = append(allErrs, r.Spec.Bastion.Validate()...)
+	allErrs = append(allErrs, r.Spec.S3Bucket.Validate()...)
 	allErrs = append(allErrs, isValidSSHKey(r.Spec.SSHKeyName)...)
 
 	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
@@ -97,6 +98,7 @@ func (r *AWSCluster) ValidateUpdate(old runtime.Object) error {
 	}
 
 	allErrs = append(allErrs, r.Spec.Bastion.Validate()...)
+	allErrs = append(allErrs, r.Spec.S3Bucket.Validate()...)
 
 	return aggregateObjErrors(r.GroupVersionKind().GroupKind(), r.Name, allErrs)
 }
