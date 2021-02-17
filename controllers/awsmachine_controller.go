@@ -707,7 +707,7 @@ func (r *AWSMachineReconciler) ignitionUserData(scope *scope.MachineScope, objec
 		return nil, errors.Wrap(err, "creating userdata object")
 	}
 
-	ignitionUserData := []byte{}
+	var ignitionUserData []byte
 
 	switch scope.AWSMachine.Spec.Ignition.Version {
 	default:
