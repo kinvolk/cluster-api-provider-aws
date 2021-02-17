@@ -148,6 +148,11 @@ type AWSClusterStatus struct {
 }
 
 type S3Bucket struct {
+	// Cleanup controls if S3 Bucket should be removed when cluster is deleted.
+	// This allows to use your own bucket for multiple clusters.
+	// +optional
+
+	Cleanup bool `json:"cleanup,omitempty"`
 	// Enabled controls if S3 Bucket should be created as part of cluster provisioning.
 	// +optional
 	Enabled bool `json:"enabled,omitempty"`
@@ -155,11 +160,6 @@ type S3Bucket struct {
 	// Name defines name of S3 Bucket to be created. By default Cluster name will be used.
 	// +optional
 	Name string `json:"name,omitempty"`
-
-	// Cleanup controls if S3 Bucket should be removed when cluster is deleted.
-	// This allows to use your own bucket for multiple clusters.
-	// +optional
-	Cleanup bool `json:"cleanup,omitempty"`
 }
 
 // +kubebuilder:object:root=true
