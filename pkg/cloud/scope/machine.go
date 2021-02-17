@@ -204,7 +204,7 @@ func (m *MachineScope) CompressUserData(userDataFormat string) bool {
 		return false
 	}
 
-	return m.AWSMachine.Spec.UncompressedUserData != nil && *m.AWSMachine.Spec.UncompressedUserData
+	return m.AWSMachine.Spec.UncompressedUserData != nil && !*m.AWSMachine.Spec.UncompressedUserData
 }
 
 // GetSecretPrefix returns the prefix for the secrets belonging
