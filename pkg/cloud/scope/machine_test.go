@@ -174,8 +174,19 @@ func TestUseSecretsManagerTrue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !scope.UseSecretsManager() {
+	if !scope.UseSecretsManager("cloud-config") {
 		t.Fatalf("UseSecretsManager should be true")
+	}
+}
+
+func TestUseIgnitionTrue(t *testing.T) {
+	scope, err := setupMachineScope()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !scope.UseIgnition("ignition") {
+		t.Fatalf("UseIgnition should be true")
 	}
 }
 
