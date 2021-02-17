@@ -72,8 +72,6 @@ func (s *Service) ReconcileBucket() error {
 		return nil
 	}
 
-	s.scope.Info("Would reconcile S3 Bucket, maybe use %q as a name?", s.bucketName())
-
 	if _, err := s.s3Client.CreateBucket(&s3.CreateBucketInput{
 		Bucket: aws.String(s.bucketName()),
 	}); err != nil {
@@ -108,8 +106,6 @@ func (s *Service) bootstrapDataKey(m *scope.MachineScope) string {
 }
 
 func (s *Service) Delete(m *scope.MachineScope) error {
-	s.scope.Info("Would delete S3 object for machine %q", m.Name())
-
 	if _, err := s.s3Client.DeleteObject(&s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucketName()),
 		Key:    aws.String(s.bootstrapDataKey(m)),
