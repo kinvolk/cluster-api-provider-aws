@@ -140,5 +140,6 @@ const (
 
 const (
 	S3BucketReadyCondition clusterv1.ConditionType = "S3BucketCreated"
-	S3BucketFailedReason                           = "S3BucketCreationFailed"
+
+	S3BucketFailedReason = "S3BucketCreationFailed"
 )
