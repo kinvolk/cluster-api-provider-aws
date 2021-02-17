@@ -18,12 +18,17 @@ package s3
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"net/url"
+	"path"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
+	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/aws/aws-sdk-go/service/sts/stsiface"
 	"github.com/pkg/errors"
 
 	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/scope"
@@ -33,17 +38,20 @@ import (
 // The interfaces are broken down like this to group functions together.
 // One alternative is to have a large list of functions from the ec2 client.
 type Service struct {
-	scope    scope.S3Scope
-	s3Client s3iface.S3API
+	scope     scope.S3Scope
+	s3Client  s3iface.S3API
+	stsClient stsiface.STSAPI
 }
 
 // NewService returns a new service given the api clients.
 func NewService(s3Scope scope.S3Scope) *Service {
 	s3Client := scope.NewS3Client(s3Scope, s3Scope, s3Scope.InfraCluster())
+	stsClient := scope.NewSTSClient(s3Scope, s3Scope, s3Scope.InfraCluster())
 
 	return &Service{
-		scope:    s3Scope,
-		s3Client: s3Client,
+		scope:     s3Scope,
+		s3Client:  s3Client,
+		stsClient: stsClient,
 	}
 }
 
@@ -56,7 +64,7 @@ func (s *Service) DeleteBucket() error {
 		return nil
 	}
 
-	s.scope.Info("Would delete S3 Bucket")
+	s.scope.Info("Deleting S3 Bucket", "name", s.bucketName())
 
 	if _, err := s.s3Client.DeleteBucket(&s3.DeleteBucketInput{
 		Bucket: aws.String(s.bucketName()),
@@ -80,13 +88,63 @@ func (s *Service) ReconcileBucket() error {
 			// If bucket already exists, all good.
 			// TODO: This will fail if bucket is shared with other cluster.
 			case s3.ErrCodeBucketAlreadyOwnedByYou:
-				return nil
+				break
 			default:
 				return errors.Wrap(aerr, "creating S3 bucket")
 			}
+		} else {
+			return errors.Wrap(err, "creating S3 bucket")
 		}
+	}
 
-		return errors.Wrap(err, "creating S3 bucket")
+	accountID, err := s.stsClient.GetCallerIdentity(&sts.GetCallerIdentityInput{})
+	if err != nil {
+		return errors.Wrap(err, "getting account ID")
+	}
+
+	// Create a policy using map interface. Filling in the bucket as the
+	// resource.
+	readOnlyAnonUserPolicy := map[string]interface{}{
+		"Version": "2012-10-17",
+		"Statement": []map[string]interface{}{
+			{
+				"Sid":    "Stmt1613551032800",
+				"Effect": "Allow",
+				"Principal": map[string]interface{}{
+					// TODO: Document that if user specifies their own IAM role for nodes, they must also include access to the bucket
+					// using user role.
+					"AWS": fmt.Sprintf("arn:aws:iam::%s:role/nodes.cluster-api-provider-aws.sigs.k8s.io", *accountID.Account),
+				},
+				"Action": []string{
+					"s3:GetObject",
+				},
+				"Resource": fmt.Sprintf("arn:aws:s3:::%s/node/*", s.bucketName()),
+			},
+			{
+				"Sid":    "Stmt1613551032801",
+				"Effect": "Allow",
+				"Principal": map[string]interface{}{
+					"AWS": fmt.Sprintf("arn:aws:iam::%s:role/control-plane.cluster-api-provider-aws.sigs.k8s.io", *accountID.Account),
+				},
+				"Action": []string{
+					"s3:GetObject",
+				},
+				"Resource": fmt.Sprintf("arn:aws:s3:::%s/control-plane/*", s.bucketName()),
+			},
+		},
+	}
+
+	// Marshal the policy into a JSON value so that it can be sent to S3.
+	policy, err := json.Marshal(readOnlyAnonUserPolicy)
+	if err != nil {
+		return errors.Wrap(err, "building bucket policy")
+	}
+
+	if _, err := s.s3Client.PutBucketPolicy(&s3.PutBucketPolicyInput{
+		Bucket: aws.String(s.bucketName()),
+		Policy: aws.String(string(policy)),
+	}); err != nil {
+		return errors.Wrap(err, "creating S3 bucket policy")
 	}
 
 	return nil
@@ -102,7 +160,7 @@ func (s *Service) bucketName() string {
 
 func (s *Service) bootstrapDataKey(m *scope.MachineScope) string {
 	// Use machine name as object key.
-	return m.Name()
+	return path.Join(m.Role(), m.Name())
 }
 
 func (s *Service) Delete(m *scope.MachineScope) error {
@@ -124,7 +182,6 @@ func (s *Service) Create(m *scope.MachineScope, data []byte) (string, error) {
 		Body:   aws.ReadSeekCloser(bytes.NewReader(data)),
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
-		ACL:    aws.String("public-read"), // TODO: We can do better, this is insecure.
 	}); err != nil {
 		return "", errors.Wrap(err, "putting object")
 	}
