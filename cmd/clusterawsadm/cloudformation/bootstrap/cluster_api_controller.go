@@ -215,6 +215,11 @@ func (t Template) controllersPolicy() *iamv1.PolicyDocument {
 			})
 		}
 	}
+	if t.Spec.S3Bucket {
+		statement = append(statement,
+			t.objectStorePolicy(),
+		)
+	}
 	if t.Spec.EKS.Enable {
 		allowedIAMActions := iamv1.Actions{
 			"iam:GetRole",
