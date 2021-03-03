@@ -434,6 +434,32 @@ var _ = Describe("functional tests - unmanaged", func() {
 		})
 	})
 
+	Describe("Workload cluster with AWS S3 Parameter", func() {
+		It("It should be creatable and deletable", func() {
+			By("Creating a cluster")
+			clusterName := fmt.Sprintf("cluster-%s", util.RandomString(6))
+			configCluster := defaultConfigCluster(clusterName, namespace.Name)
+			configCluster.ControlPlaneMachineCount = pointer.Int64Ptr(1)
+			configCluster.WorkerMachineCount = pointer.Int64Ptr(1)
+			configCluster.Flavor = shared.S3Flavor
+			_, md := createCluster(ctx, configCluster)
+
+			workerMachines := framework.GetMachinesByMachineDeployments(ctx, framework.GetMachinesByMachineDeploymentsInput{
+				Lister:            e2eCtx.Environment.BootstrapClusterProxy.GetClient(),
+				ClusterName:       clusterName,
+				Namespace:         namespace.Name,
+				MachineDeployment: *md[0],
+			})
+			controlPlaneMachines := framework.GetControlPlaneMachinesByCluster(ctx, framework.GetControlPlaneMachinesByClusterInput{
+				Lister:      e2eCtx.Environment.BootstrapClusterProxy.GetClient(),
+				ClusterName: clusterName,
+				Namespace:   namespace.Name,
+			})
+			Expect(len(workerMachines)).To(Equal(1))
+			Expect(len(controlPlaneMachines)).To(Equal(1))
+		})
+	})
+
 	AfterEach(func() {
 		// Dumps all the resources in the spec namespace, then cleanups the cluster object and the spec namespace itself.
 		shared.DumpSpecResourcesAndCleanup(ctx, "", namespace, e2eCtx)
