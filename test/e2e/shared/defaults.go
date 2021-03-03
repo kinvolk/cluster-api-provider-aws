@@ -43,6 +43,7 @@ const (
 	LimitAzFlavor                = "limit-az"
 	SpotInstancesFlavor          = "spot-instances"
 	SSMFlavor                    = "ssm"
+	S3Flavor                     = "s3"
 	StorageClassFailureZoneLabel = "failure-domain.beta.kubernetes.io/zone"
 )
 
