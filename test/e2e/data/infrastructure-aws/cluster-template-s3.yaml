@@ -77,16 +77,16 @@ spec:
                   EnvironmentFile=/run/metadata/*
     initConfiguration:
       nodeRegistration:
-        name: '{{ ds.meta_data.local_hostname }}'
         kubeletExtraArgs:
           cloud-provider: aws
           volume-plugin-dir: /opt/libexec/kubernetes/kubelet-plugins/volume/exec/
+        name: $${COREOS_EC2_HOSTNAME}
     joinConfiguration:
       nodeRegistration:
-        name: '{{ ds.meta_data.local_hostname }}'
         kubeletExtraArgs:
           cloud-provider: aws
           volume-plugin-dir: /opt/libexec/kubernetes/kubelet-plugins/volume/exec/
+        name: $${COREOS_EC2_HOSTNAME}
     preKubeadmCommands:
     - envsubst < /etc/kubeadm.yml > /etc/kubeadm.yml.tmp
     - mv /etc/kubeadm.yml.tmp /etc/kubeadm.yml
@@ -180,7 +180,7 @@ spec:
           kubeletExtraArgs:
             cloud-provider: aws
             volume-plugin-dir: /opt/libexec/kubernetes/kubelet-plugins/volume/exec/
-          name: '{{ ds.meta_data.local_hostname }}'
+          name: $${COREOS_EC2_HOSTNAME}
       preKubeadmCommands:
       - envsubst < /etc/kubeadm.yml > /etc/kubeadm.yml.tmp
       - mv /etc/kubeadm.yml.tmp /etc/kubeadm.yml
