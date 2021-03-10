@@ -43,9 +43,9 @@ providers:
           - old: "imagePullPolicy: Always"
             new: "imagePullPolicy: IfNotPresent"
           - old: "--enable-leader-election"
-            new: "--enable-leader-election=false"
+            new: "--leader-elect=false"
           - old: --metrics-addr=127.0.0.1:8080
-            new: --metrics-addr=:8080
+            new: --metrics-bind-addr=:8080
 
   - name: kubeadm
     type: BootstrapProvider
@@ -58,9 +58,9 @@ providers:
           - old: "imagePullPolicy: Always"
             new: "imagePullPolicy: IfNotPresent"
           - old: "--enable-leader-election"
-            new: "--enable-leader-election=false"
+            new: "--leader-elect=false"
           - old: --metrics-addr=127.0.0.1:8080
-            new: --metrics-addr=:8080
+            new: --metrics-bind-addr=:8080
 
   - name: kubeadm
     type: ControlPlaneProvider
@@ -73,9 +73,9 @@ providers:
           - old: "imagePullPolicy: Always"
             new: "imagePullPolicy: IfNotPresent"
           - old: "--enable-leader-election"
-            new: "--enable-leader-election=false"
+            new: "--leader-elect=false"
           - old: --metrics-addr=127.0.0.1:8080
-            new: --metrics-addr=:8080
+            new: --metrics-bind-addr=:8080
 
   - name: aws
     type: InfrastructureProvider
