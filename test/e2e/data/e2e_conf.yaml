@@ -115,6 +115,8 @@ providers:
         targetName: "cluster-template-simple-multitenancy.yaml"
       - sourcePath: "./infrastructure-aws/cluster-template-nested-multitenancy.yaml"
         targetName: "cluster-template-nested-multitenancy.yaml"
+      - sourcePath: "./infrastructure-aws/cluster-template-s3.yaml"
+        targetName: "cluster-template-s3.yaml"
 variables:
   KUBERNETES_VERSION: "v1.20.4"
   CNI: "../../data/cni/calico.yaml"
