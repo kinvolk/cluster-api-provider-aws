@@ -147,9 +147,9 @@ test-e2e-eks: $(GINKGO) $(KIND) $(SSM_PLUGIN) $(KUSTOMIZE) e2e-image ## Run eks 
 
 .PHONY: e2e-image
 e2e-image: docker-pull-prerequisites
-	docker build -f Dockerfile --tag="gcr.io/k8s-staging-cluster-api/capa-manager:e2e" .
-	docker build -f Dockerfile --tag="gcr.io/k8s-staging-cluster-api/capa-eks-bootstrap-manager:e2e" --build-arg package=./bootstrap/eks  .
-	docker build -f Dockerfile --tag="gcr.io/k8s-staging-cluster-api/capa-eks-controlplane-manager:e2e" --build-arg package=./controlplane/eks  .
+	docker build -f Dockerfile --tag="quay.io/invidian/capa-manager:e2e" .
+	docker build -f Dockerfile --tag="quay.io/invidian/capa-eks-bootstrap-manager:e2e" --build-arg package=./bootstrap/eks  .
+	docker build -f Dockerfile --tag="quay.io/invidian/capa-eks-controlplane-manager:e2e" --build-arg package=./controlplane/eks  .
 
 E2E_ARGS ?=
 CONFORMANCE_E2E_ARGS ?= -kubetest.config-file=$(KUBETEST_CONF_PATH)
