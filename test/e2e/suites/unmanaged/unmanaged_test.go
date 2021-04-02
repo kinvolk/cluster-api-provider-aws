@@ -561,9 +561,14 @@ func GetAWSClusterByName(ctx context.Context, namespace, name string) (*infrav1.
 }
 
 func createCluster(ctx context.Context, configCluster clusterctl.ConfigClusterInput) (*clusterv1.Cluster, []*clusterv1.MachineDeployment, *controlplanev1.KubeadmControlPlane) {
+	return createClusterWithCNI(ctx, configCluster, "")
+}
+
+func createClusterWithCNI(ctx context.Context, configCluster clusterctl.ConfigClusterInput, cniManifestPath string) (*clusterv1.Cluster, []*clusterv1.MachineDeployment, *controlplanev1.KubeadmControlPlane) {
 	res := clusterctl.ApplyClusterTemplateAndWait(ctx, clusterctl.ApplyClusterTemplateAndWaitInput{
 		ClusterProxy:                 e2eCtx.Environment.BootstrapClusterProxy,
 		ConfigCluster:                configCluster,
+		CNIManifestPath:              cniManifestPath,
 		WaitForClusterIntervals:      e2eCtx.E2EConfig.GetIntervals("", "wait-cluster"),
 		WaitForControlPlaneIntervals: e2eCtx.E2EConfig.GetIntervals("", "wait-control-plane"),
 		WaitForMachineDeployments:    e2eCtx.E2EConfig.GetIntervals("", "wait-worker-nodes"),
